@@ -1,0 +1,158 @@
+# Requisições para a extensão REST Client do VS Code.
+# Clique em "Send Request" acima de cada bloco, na ordem (de cima para baixo).
+# Cada bloco "# @name" guarda a resposta para os seguintes usarem (ex.: o id do quarto).
+# O arquivo pode ser executado várias vezes: cada rodada cria quarto e pessoa novos.
+
+@baseUrl = http://127.0.0.1:3000
+@token = admin-local-123
+
+### 01 - Saúde do gateway (não precisa de chave)
+GET {{baseUrl}}/health
+
+
+### 02 - Cadastrar quarto
+# @name quarto
+POST {{baseUrl}}/quartos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "numero": "{{$timestamp}}",
+  "descricao": "Suíte",
+  "fechadura_id": "FECH-{{$timestamp}}"
+}
+
+
+### 03 - Cadastrar hóspede
+# @name pessoa
+POST {{baseUrl}}/pessoas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nome": "Maria Souza",
+  "documento": "DOC-{{$timestamp}}",
+  "tipo": "hospede",
+  "email": "maria@exemplo.com"
+}
+
+
+### 04 - Cadastrar senha válida agora (a resposta NÃO mostra o código)
+# @name senha
+POST {{baseUrl}}/senhas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quarto_id": {{quarto.response.body.$.id}},
+  "pessoa_id": {{pessoa.response.body.$.id}},
+  "senha": "012345",
+  "inicio": "2026-01-01T00:00:00-03:00",
+  "fim": "2030-12-31T23:59:59-03:00"
+}
+
+
+### 04b - Senha gerada pelo sistema (o código aparece UMA vez, na resposta)
+POST {{baseUrl}}/senhas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quarto_id": {{quarto.response.body.$.id}},
+  "pessoa_id": {{pessoa.response.body.$.id}},
+  "inicio": "2026-01-01T00:00:00-03:00",
+  "fim": "2030-12-31T23:59:59-03:00"
+}
+
+
+### 05 - Tentativa correta (rota da fechadura: sem chave de administrador)
+POST {{baseUrl}}/acessos
+Content-Type: application/json
+
+{
+  "fechadura_id": "{{quarto.response.body.$.fechadura_id}}",
+  "senha": "012345"
+}
+
+
+### 06 - Tentativa com senha incorreta
+POST {{baseUrl}}/acessos
+Content-Type: application/json
+
+{
+  "fechadura_id": "{{quarto.response.body.$.fechadura_id}}",
+  "senha": "000000"
+}
+
+
+### 07 - Cadastrar senha vencida
+POST {{baseUrl}}/senhas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quarto_id": {{quarto.response.body.$.id}},
+  "pessoa_id": {{pessoa.response.body.$.id}},
+  "senha": "7777",
+  "inicio": "2024-01-01T00:00:00-03:00",
+  "fim": "2024-01-02T00:00:00-03:00"
+}
+
+
+### 08 - Senha vencida não abre
+POST {{baseUrl}}/acessos
+Content-Type: application/json
+
+{
+  "fechadura_id": "{{quarto.response.body.$.fechadura_id}}",
+  "senha": "7777"
+}
+
+
+### 09 - Histórico do quarto (autorizados e negados)
+GET {{baseUrl}}/acessos?quarto_id={{quarto.response.body.$.id}}
+Authorization: Bearer {{token}}
+
+
+### 10 - Consultar senhas do quarto (sem código nem hash)
+GET {{baseUrl}}/senhas?quarto_id={{quarto.response.body.$.id}}
+Authorization: Bearer {{token}}
+
+
+### 11 - Revogar a senha válida
+DELETE {{baseUrl}}/senhas/{{senha.response.body.$.id}}
+Authorization: Bearer {{token}}
+
+
+### 12 - Senha revogada não abre
+POST {{baseUrl}}/acessos
+Content-Type: application/json
+
+{
+  "fechadura_id": "{{quarto.response.body.$.fechadura_id}}",
+  "senha": "012345"
+}
+
+
+### 13 - Desativar hóspede
+DELETE {{baseUrl}}/pessoas/{{pessoa.response.body.$.id}}
+Authorization: Bearer {{token}}
+
+
+### 14 - Desativar quarto
+DELETE {{baseUrl}}/quartos/{{quarto.response.body.$.id}}
+Authorization: Bearer {{token}}
+
+
+### 15 - Consulta sem chave de administrador (deve dar 401)
+GET {{baseUrl}}/quartos
+
+
+### 16 - Rota interna não é exposta pelo gateway (deve dar 404)
+POST {{baseUrl}}/senhas/interno/verificar
+Content-Type: application/json
+
+{
+  "quarto_id": 1,
+  "senha": "012345"
+}
